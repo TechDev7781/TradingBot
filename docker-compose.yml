@@ -1,0 +1,21 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tradingbot-api
+    restart: unless-stopped
+    command: uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - ./:/app
+      - /app/.venv
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      interval: 15s
+      timeout: 30s
+      retries: 10
+

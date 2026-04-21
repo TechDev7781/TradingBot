@@ -1,0 +1,17 @@
+.venv
+__pycache__
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.idea
+.vscode
+*.md
+Dockerfile
+docker-compose*.yml
