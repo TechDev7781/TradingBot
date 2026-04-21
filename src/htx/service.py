@@ -199,8 +199,6 @@ class HtxService:
         balance = await cls.get_margin_balance()
         volume = cls._calc_volume(symbol, price, balance)
 
-        return
-
         if action == "buy":
             tp_price = price * (1 + TAKE_PROFIT)
             sl_price = price * (1 - STOP_LOSS)
