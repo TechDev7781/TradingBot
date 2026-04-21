@@ -8,6 +8,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
+        enable_decoding=False,
     )
 
     host: str
@@ -22,10 +23,19 @@ class Settings(BaseSettings):
     @field_validator("telegram_chat_ids", mode="before")
     @classmethod
     def _split_chat_ids(cls, value: object) -> object:
+        if value is None:
+            return []
+
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
 
-        return [str(value)]
+        if isinstance(value, int):
+            return [str(value)]
+
+        return []
 
 
 settings = Settings()
