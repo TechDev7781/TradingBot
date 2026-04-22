@@ -183,18 +183,21 @@ class StrategyService:
         notification: NotificationSchema,
         h4_klines: Sequence[KlineSchema],
         m15_klines: Sequence[KlineSchema],
+        market_price: float,
     ) -> StrategyDecisionSchema:
-        price = notification.close
+        price = market_price
         side = notification.side
         h4_closes = [k.close for k in h4_klines]
         m15_closes = [k.close for k in m15_klines]
 
         logger.info(
-            "старт оценки ticker=%s side=%s pattern=%s price=%.6f "
+            "старт оценки ticker=%s side=%s pattern=%s "
+            "webhook_price=%.6f market_price=%.6f "
             "(H4 свечей=%d, M15 свечей=%d)",
             notification.ticker,
             side.value,
             notification.pattern.value,
+            notification.close,
             price,
             len(h4_klines),
             len(m15_klines),
@@ -220,7 +223,7 @@ class StrategyService:
 
         if decision.should_enter:
             logger.info(
-                "✅ ВХОД РАЗРЕШЁН side=%s ticker=%s price=%.6f",
+                "✅ ВХОД РАЗРЕШЁН side=%s ticker=%s price=%.6f (из HTX M15)",
                 side.value,
                 notification.ticker,
                 price,
@@ -266,9 +269,13 @@ class StrategyService:
             m15_klines = await HtxService.get_klines(
                 schema.ticker, M15_PERIOD, M15_SIZE
             )
+            market_price = m15_klines[-1].close
 
             decision = cls._check_indicators(
-                schema, h4_klines=h4_klines, m15_klines=m15_klines
+                schema,
+                h4_klines=h4_klines,
+                m15_klines=m15_klines,
+                market_price=market_price,
             )
 
             if not decision.should_enter:
@@ -280,7 +287,8 @@ class StrategyService:
                     f"Тикер: {schema.ticker.value}\n"
                     f"Сторона: {schema.side.value}\n"
                     f"Паттерн: {schema.pattern.value}\n"
-                    f"Цена: {schema.close:.6f}\n\n"
+                    f"Цена webhook: {schema.close:.6f}\n"
+                    f"Цена HTX (M15 текущая): {market_price:.6f}\n\n"
                     f"Провалены фильтры:\n{failed_lines}"
                 )
                 return
@@ -289,7 +297,7 @@ class StrategyService:
             body = await HtxService.place_order(
                 action=action,
                 symbol=schema.ticker,
-                price=m15_klines[-1].close,
+                price=market_price,
             )
 
             await TelegramService.broadcast(
@@ -298,7 +306,7 @@ class StrategyService:
                 f"Сторона: {schema.side.value}\n"
                 f"Действие: {action}\n"
                 f"Паттерн: {schema.pattern.value}\n"
-                f"Цена: {m15_klines[-1].close:.6f}\n"
+                f"Цена HTX (M15 текущая): {market_price:.6f}\n"
                 f"Объём: {body['volume']}\n"
                 f"Take Profit: {body['tp_order_price']:.6f}\n"
                 f"Stop Loss: {body['sl_order_price']:.6f}\n"
