@@ -230,4 +230,6 @@ class HtxService:
             "sl_order_price": round(sl_price, 4),
             "sl_order_price_type": "optimal_5",
         }
-        return await cls._signed_post(HTX_ORDER_API_URL, HTX_ORDER_API_PATH, body)
+        await cls._signed_post(HTX_ORDER_API_URL, HTX_ORDER_API_PATH, body)
+
+        return body

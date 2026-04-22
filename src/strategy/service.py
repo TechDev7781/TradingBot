@@ -286,18 +286,23 @@ class StrategyService:
                 return
 
             action = "buy" if decision.side == SideEnum.LONG else "sell"
-            await HtxService.place_order(
+            body = await HtxService.place_order(
                 action=action,
                 symbol=schema.ticker,
-                price=schema.close,
+                price=m15_klines[-1].close,
             )
 
             await TelegramService.broadcast(
                 "Сделка размещена\n"
                 f"Тикер: {schema.ticker.value}\n"
                 f"Сторона: {schema.side.value}\n"
+                f"Действие: {action}\n"
                 f"Паттерн: {schema.pattern.value}\n"
-                f"Цена: {schema.close:.6f}\n"
+                f"Цена: {m15_klines[-1].close:.6f}\n"
+                f"Объём: {body['volume']}\n"
+                f"Take Profit: {body['tp_order_price']:.6f}\n"
+                f"Stop Loss: {body['sl_order_price']:.6f}\n"
+                f"Плечо: {body['lever_rate']}\n"
             )
         except Exception as e:
             logger.exception("Ошибка при обработке webhook: %s", e)
