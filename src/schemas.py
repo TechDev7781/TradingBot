@@ -25,18 +25,27 @@ class TickerEnum(Enum):
     BTCUSDT = "BTCUSDT"
     ETHUSDT = "ETHUSDT"
     SOLUSDT = "SOLUSDT"
+    LTCUSDT = "LTCUSDT"
+    TRXUSDT = "TRXUSDT"
+    XRPUSDT = "XRPUSDT"
 
 
 ticker_to_htx_code = {
     TickerEnum.BTCUSDT: "BTC-USDT",
     TickerEnum.ETHUSDT: "ETH-USDT",
     TickerEnum.SOLUSDT: "SOL-USDT",
+    TickerEnum.LTCUSDT: "LTC-USDT",
+    TickerEnum.TRXUSDT: "TRX-USDT",
+    TickerEnum.XRPUSDT: "XRP-USDT",
 }
 
 ticker_to_contract_size = {
     TickerEnum.BTCUSDT: 0.001,
     TickerEnum.ETHUSDT: 0.01,
     TickerEnum.SOLUSDT: 1.0,
+    TickerEnum.LTCUSDT: 0.1,
+    TickerEnum.TRXUSDT: 100.0,
+    TickerEnum.XRPUSDT: 10.0,
 }
 
 
