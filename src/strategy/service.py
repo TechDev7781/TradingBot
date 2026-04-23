@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Sequence
-from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 from ta.momentum import RSIIndicator
@@ -253,16 +252,16 @@ class StrategyService:
             f"Цена: {schema.close:.6f}\n"
         )
 
-        time = datetime.now(timezone(timedelta(hours=3)))
-        if time.hour < 9 and time.hour > 1:
-            await TelegramService.broadcast(
-                "Сделка не размещена из за нерабочего времени\n"
-                f"Тикер: {schema.ticker.value}\n"
-                f"Сторона: {schema.side.value}\n"
-                f"Паттерн: {schema.pattern.value}\n"
-                f"Цена: {schema.close:.6f}\n\n"
-            )
-            return
+        # time = datetime.now(timezone(timedelta(hours=3)))
+        # if time.hour < 9 and time.hour > 1:
+        #     await TelegramService.broadcast(
+        #         "Сделка не размещена из за нерабочего времени\n"
+        #         f"Тикер: {schema.ticker.value}\n"
+        #         f"Сторона: {schema.side.value}\n"
+        #         f"Паттерн: {schema.pattern.value}\n"
+        #         f"Цена: {schema.close:.6f}\n\n"
+        #     )
+        #     return
 
         try:
             h4_klines = await HtxService.get_klines(schema.ticker, H4_PERIOD, H4_SIZE)
