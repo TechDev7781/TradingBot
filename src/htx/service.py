@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import logging
+import math
 from datetime import datetime, timezone
 from typing import Any, Literal
 from urllib.parse import quote, urlencode
@@ -95,11 +96,15 @@ class HtxService:
         return base64.b64encode(digest).decode()
 
     @classmethod
-    def _calc_volume(cls, symbol: TickerEnum, price: float, balance: float) -> int:
+    def _calc_volume(
+        cls, symbol: TickerEnum, price: float, balance: float, lever_rate: int
+    ) -> int:
         contract_size = ticker_to_contract_size[symbol]
-        notional_usdt = balance * AMOUNT_OF_VOLUME_FROM_DEPOSIT
-        contracts_float = notional_usdt / (price * contract_size)
-        volume = int(contracts_float)
+        margin_target_usdt = balance * AMOUNT_OF_VOLUME_FROM_DEPOSIT
+        notional_target_usdt = margin_target_usdt * lever_rate
+        contracts_float = notional_target_usdt / (price * contract_size)
+        # On HTX volume is integer contracts; ceil avoids undersizing the position.
+        volume = math.ceil(contracts_float)
         if volume < 1:
             raise RuntimeError(
                 f"Депозит слишком мал для {AMOUNT_OF_VOLUME_FROM_DEPOSIT * 100:.0f}% позиции: "
@@ -197,7 +202,7 @@ class HtxService:
         """
 
         balance = await cls.get_margin_balance()
-        volume = cls._calc_volume(symbol, price, balance)
+        volume = cls._calc_volume(symbol, price, balance, lever_rate)
 
         if action == "buy":
             tp_price = price * (1 + TAKE_PROFIT)
