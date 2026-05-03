@@ -16,10 +16,12 @@ HTX_HOST: str = "api.hbdm.com"
 HTX_BASE_API_URL: str = f"https://{HTX_HOST}"
 
 HTX_GET_KLINES_API_PATH: str = "/linear-swap-ex/market/history/kline"
+HTX_CONTRACT_INFO_API_PATH: str = "/linear-swap-api/v1/swap_contract_info"
 HTX_ORDER_API_PATH: str = "/linear-swap-api/v1/swap_order"
 HTX_ACCOUNT_INFO_API_PATH: str = "/linear-swap-api/v3/unified_account_info"
 
 HTX_GET_KLINES_API_URL: str = HTX_BASE_API_URL + HTX_GET_KLINES_API_PATH
+HTX_CONTRACT_INFO_API_URL: str = HTX_BASE_API_URL + HTX_CONTRACT_INFO_API_PATH
 HTX_ORDER_API_URL: str = HTX_BASE_API_URL + HTX_ORDER_API_PATH
 HTX_ACCOUNT_INFO_API_URL: str = HTX_BASE_API_URL + HTX_ACCOUNT_INFO_API_PATH
 

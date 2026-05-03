@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import logging
 import math
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timezone
 from typing import Any, Literal
 from urllib.parse import quote, urlencode
@@ -15,6 +16,7 @@ from src.constants import (
     DEFAULT_LEVERAGE,
     HTX_ACCOUNT_INFO_API_PATH,
     HTX_ACCOUNT_INFO_API_URL,
+    HTX_CONTRACT_INFO_API_URL,
     HTX_GET_KLINES_API_URL,
     HTX_HOST,
     HTX_ORDER_API_PATH,
@@ -34,6 +36,8 @@ logger = logging.getLogger(__name__)
 
 
 class HtxService:
+    _price_tick_cache: dict[TickerEnum, Decimal] = {}
+
     @classmethod
     async def _signed_post(
         cls,
@@ -112,6 +116,48 @@ class HtxService:
                 f"нужно {contracts_float:.4f} контрактов"
             )
         return volume
+
+    @classmethod
+    async def _get_price_tick(cls, symbol: TickerEnum) -> Decimal:
+        cached = cls._price_tick_cache.get(symbol)
+        if cached is not None:
+            return cached
+
+        params = {"contract_code": ticker_to_htx_code[symbol]}
+        async with httpx.AsyncClient(timeout=HTX_TIMEOUT, verify=False) as client:
+            resp = await client.get(HTX_CONTRACT_INFO_API_URL, params=params)
+            resp.raise_for_status()
+            body = resp.json()
+
+        if body.get("status") != "ok":
+            raise RuntimeError(f"Ошибка HTX при получении contract_info: {body}")
+
+        data = body.get("data") or []
+        contract_info = next(
+            (row for row in data if row.get("contract_code") == ticker_to_htx_code[symbol]),
+            None,
+        )
+        if contract_info is None:
+            raise RuntimeError(
+                f"Не найден contract_info для {ticker_to_htx_code[symbol]}: {body}"
+            )
+
+        price_tick = Decimal(str(contract_info["price_tick"]))
+        if price_tick <= 0:
+            raise RuntimeError(
+                f"Некорректный price_tick={price_tick} для {ticker_to_htx_code[symbol]}"
+            )
+
+        cls._price_tick_cache[symbol] = price_tick
+        return price_tick
+
+    @classmethod
+    async def _quantize_price(cls, symbol: TickerEnum, price: float) -> float:
+        tick = await cls._get_price_tick(symbol)
+        quantized = (Decimal(str(price)) / tick).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        ) * tick
+        return float(quantized)
 
     @classmethod
     async def get_klines(
@@ -205,11 +251,13 @@ class HtxService:
         volume = cls._calc_volume(symbol, price, balance, lever_rate)
 
         if action == "buy":
-            tp_price = price * (1 + TAKE_PROFIT)
-            sl_price = price * (1 - STOP_LOSS)
+            tp_raw = price * (1 + TAKE_PROFIT)
+            sl_raw = price * (1 - STOP_LOSS)
         else:
-            tp_price = price * (1 - TAKE_PROFIT)
-            sl_price = price * (1 + STOP_LOSS)
+            tp_raw = price * (1 - TAKE_PROFIT)
+            sl_raw = price * (1 + STOP_LOSS)
+        tp_price = await cls._quantize_price(symbol, tp_raw)
+        sl_price = await cls._quantize_price(symbol, sl_raw)
 
         logger.info(
             "HTX %s: %s vol=%d price=%.6f -> TP=%.6f SL=%.6f",
@@ -228,11 +276,11 @@ class HtxService:
             "offset": "open",
             "lever_rate": lever_rate,
             "order_price_type": "opponent",
-            "tp_trigger_price": round(tp_price, 4),
-            "tp_order_price": round(tp_price, 4),
+            "tp_trigger_price": tp_price,
+            "tp_order_price": tp_price,
             "tp_order_price_type": "optimal_5",
-            "sl_trigger_price": round(sl_price, 4),
-            "sl_order_price": round(sl_price, 4),
+            "sl_trigger_price": sl_price,
+            "sl_order_price": sl_price,
             "sl_order_price_type": "optimal_5",
         }
         await cls._signed_post(HTX_ORDER_API_URL, HTX_ORDER_API_PATH, body)
