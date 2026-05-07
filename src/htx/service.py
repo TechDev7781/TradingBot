@@ -3,8 +3,8 @@ import hashlib
 import hmac
 import logging
 import math
-from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Literal
 from urllib.parse import quote, urlencode
 
@@ -18,6 +18,7 @@ from src.constants import (
     HTX_ACCOUNT_INFO_API_URL,
     HTX_CONTRACT_INFO_API_URL,
     HTX_GET_KLINES_API_URL,
+    HTX_GET_MERGED_DETAIL_API_URL,
     HTX_HOST,
     HTX_ORDER_API_PATH,
     HTX_ORDER_API_URL,
@@ -134,7 +135,11 @@ class HtxService:
 
         data = body.get("data") or []
         contract_info = next(
-            (row for row in data if row.get("contract_code") == ticker_to_htx_code[symbol]),
+            (
+                row
+                for row in data
+                if row.get("contract_code") == ticker_to_htx_code[symbol]
+            ),
             None,
         )
         if contract_info is None:
@@ -230,6 +235,25 @@ class HtxService:
         return balance
 
     @classmethod
+    async def get_last_price(cls, symbol: TickerEnum) -> float:
+        params = {"contract_code": ticker_to_htx_code[symbol]}
+        async with httpx.AsyncClient(timeout=HTX_TIMEOUT, verify=False) as client:
+            resp = await client.get(HTX_GET_MERGED_DETAIL_API_URL, params=params)
+            resp.raise_for_status()
+            body = resp.json()
+
+        if body.get("status") != "ok":
+            raise RuntimeError(f"Ошибка HTX при получении last price: {body}")
+
+        tick = body.get("tick") or {}
+        close = tick.get("close")
+        if close is None:
+            raise RuntimeError(
+                f"В ответе HTX нет tick.close для {symbol.value}: {body}"
+            )
+        return float(close)
+
+    @classmethod
     async def place_order(
         cls,
         action: Literal["buy", "sell"],
@@ -238,7 +262,8 @@ class HtxService:
         lever_rate: int = DEFAULT_LEVERAGE,
     ) -> dict[str, Any]:
         """
-        Открывает позицию маркетом и сразу ставит TP (+3%) и SL (-1%)
+        Открывает позицию лимитной заявкой по переданной цене
+        и сразу ставит TP (+3%) и SL (-1%)
         в сторону, выгодную для action.
 
         action="buy"  -> открыть лонг,  TP = price * 1.03, SL = price * 0.99
@@ -275,7 +300,8 @@ class HtxService:
             "direction": action,
             "offset": "open",
             "lever_rate": lever_rate,
-            "order_price_type": "opponent",
+            "price": price,
+            "order_price_type": "limit",
             "tp_trigger_price": tp_price,
             "tp_order_price": tp_price,
             "tp_order_price_type": "optimal_5",
