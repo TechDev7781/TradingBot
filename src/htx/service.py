@@ -273,6 +273,12 @@ class HtxService:
         """
 
         balance = await cls.get_margin_balance()
+
+        if action == "buy":
+            price = price + (price * 0.003)
+        else:
+            price = price - (price * 0.003)
+
         volume = cls._calc_volume(symbol, price, balance, lever_rate)
 
         if action == "buy":
